@@ -14,6 +14,7 @@ import { buildPromptSection } from "./src/prompt-section.js";
 import { listMemoryCorePublicArtifacts } from "./src/public-artifacts.js";
 import { memoryRuntime } from "./src/runtime-provider.js";
 import { createMemoryGetTool, createMemorySearchTool } from "./src/tools.js";
+import { createMemoryForgetTool } from "./src/tools.memory-forget.js";
 import { createMemoryStoreTool } from "./src/tools.memory-store.js";
 export {
   buildMemoryFlushPlan,
@@ -66,6 +67,15 @@ export default definePluginEntry({
           agentSessionKey: ctx.sessionKey,
         }),
       { names: ["memory_store"] },
+    );
+
+    api.registerTool(
+      (ctx) =>
+        createMemoryForgetTool({
+          config: ctx.config,
+          agentSessionKey: ctx.sessionKey,
+        }),
+      { names: ["memory_forget"] },
     );
 
     api.registerCli(
