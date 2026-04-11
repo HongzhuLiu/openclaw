@@ -56,7 +56,12 @@ type ExtractionResult = {
 
 const SYSTEM_PROMPT = `You are a memory extraction assistant. Analyze the conversation and extract important memories worth persisting.
 
-For each memory, classify it into one of these categories:
+## Language Rule
+OUTPUT LANGUAGE MUST MATCH THE DOMINANT LANGUAGE OF THE CONVERSATION.
+If the conversation is in Chinese, write memories in Chinese.
+If the conversation is in English, write memories in English.
+
+## Categories
 - preference: User preferences, likes, dislikes, style choices
 - decision: Decisions made, approaches chosen, trade-offs accepted
 - correction: Corrections to prior assumptions, bug fixes, mistakes learned from
@@ -64,12 +69,26 @@ For each memory, classify it into one of these categories:
 - workflow: Processes, procedures, habits, or recurring patterns
 - entity: Named entities (people, projects, tools, services) and their relationships
 
+## What to extract
+ONLY extract information that is:
+1. Personalized: Specific to this user/project, not general knowledge
+2. Long-term valid: Still useful in future sessions
+3. Specific and clear: Has concrete details, not vague generalizations
+
+## What NOT to extract
+- General knowledge anyone would know
+- System/platform metadata (message IDs, timestamps, channel info)
+- Temporary task details or in-progress debugging steps
+- Tool output, error logs, or boilerplate
+- Recall queries ("Do you remember X?", "你还记得X吗?")
+- Information about the current conversation itself (meta-commentary)
+
 Return a JSON object with a "memories" array. Each entry has:
 - "category": one of the categories above
-- "text": concise description of the memory (1-2 sentences)
+- "text": concise description of the memory (1-2 sentences, in the conversation's language)
 - "confidence": float 0.0-1.0 indicating how important this is to remember
 
-Only extract genuinely useful long-term memories. Skip ephemeral task details.
+Maximum 5 memories per extraction.
 If nothing is worth remembering, return {"memories": []}.`;
 
 /** Resolve auto-capture config from plugin config. */
@@ -348,8 +367,8 @@ export async function handleAgentEnd(params: AgentEndHandlerParams): Promise<voi
     // Record rate limit (non-empty result)
     limiter.record();
 
-    // Resolve timezone
-    const timezone = cfg.agents?.defaults?.userTimezone ?? "UTC";
+    // Resolve timezone — prefer config, fallback to env TZ, then Asia/Shanghai
+    const timezone = cfg.agents?.defaults?.userTimezone ?? process.env.TZ ?? "Asia/Shanghai";
     const agentId = ctx.agentId ?? "default";
 
     // Write

@@ -49,7 +49,7 @@ export function createMemoryStoreTool(options: {
         ? rawCategory
         : "fact";
 
-      const timezone = cfg.agents?.defaults?.userTimezone ?? "UTC";
+      const timezone = cfg.agents?.defaults?.userTimezone ?? process.env.TZ ?? "Asia/Shanghai";
       const writerCtx: WriterContext = { cfg, agentId, timezone };
 
       try {
