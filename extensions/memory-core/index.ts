@@ -2,6 +2,7 @@ import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
 import { registerMemoryCli } from "./src/cli.js";
 import { registerDreamingCommand } from "./src/dreaming-command.js";
 import { registerShortTermPromotionDreaming } from "./src/dreaming.js";
+import { handleAgentEnd, resolveAutoCaptureConfig } from "./src/extraction/extractor.js";
 import {
   buildMemoryFlushPlan,
   DEFAULT_MEMORY_FLUSH_FORCE_TRANSCRIPT_BYTES,
@@ -13,6 +14,7 @@ import { buildPromptSection } from "./src/prompt-section.js";
 import { listMemoryCorePublicArtifacts } from "./src/public-artifacts.js";
 import { memoryRuntime } from "./src/runtime-provider.js";
 import { createMemoryGetTool, createMemorySearchTool } from "./src/tools.js";
+import { createMemoryStoreTool } from "./src/tools.memory-store.js";
 export {
   buildMemoryFlushPlan,
   DEFAULT_MEMORY_FLUSH_FORCE_TRANSCRIPT_BYTES,
@@ -57,6 +59,15 @@ export default definePluginEntry({
       { names: ["memory_get"] },
     );
 
+    api.registerTool(
+      (ctx) =>
+        createMemoryStoreTool({
+          config: ctx.config,
+          agentSessionKey: ctx.sessionKey,
+        }),
+      { names: ["memory_store"] },
+    );
+
     api.registerCli(
       ({ program }) => {
         registerMemoryCli(program);
@@ -71,5 +82,16 @@ export default definePluginEntry({
         ],
       },
     );
+
+    // Auto-capture: extract memories from completed conversations
+    api.on("agent_end", async (event, ctx) => {
+      const cfg = api.config;
+      const acConfig = resolveAutoCaptureConfig(cfg);
+      if (!acConfig.enabled) {
+        return;
+      }
+      // fire-and-forget
+      void handleAgentEnd({ event, ctx, cfg });
+    });
   },
 });
