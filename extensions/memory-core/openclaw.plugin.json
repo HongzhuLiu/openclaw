@@ -19,6 +19,34 @@
     "type": "object",
     "additionalProperties": false,
     "properties": {
+      "autoCapture": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "model": {
+            "type": "string"
+          },
+          "maxMessagesPerRun": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "rateLimitPerHour": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "maxEntriesPerRun": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "timeoutMs": {
+            "type": "integer",
+            "minimum": 1000
+          }
+        }
+      },
       "dreaming": {
         "type": "object",
         "additionalProperties": false,
