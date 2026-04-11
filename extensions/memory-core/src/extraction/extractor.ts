@@ -36,7 +36,7 @@ export type AutoCaptureConfig = {
 
 const DEFAULT_CONFIG: AutoCaptureConfig = {
   enabled: true,
-  model: "openai/gpt-5.4",
+  model: "primary",
   maxMessagesPerRun: 4,
   rateLimitPerHour: 20,
   excludeTriggers: ["heartbeat", "cron", "memory"],
@@ -102,28 +102,75 @@ export function resolveAutoCaptureConfig(cfg: OpenClawConfig): AutoCaptureConfig
   };
 }
 
-/** Resolve LLM client config from auto-capture config. */
-function resolveLlmConfig(ac: AutoCaptureConfig): LlmClientConfig | null {
-  const apiKey = ac.apiKey ?? process.env.OPENAI_API_KEY;
-  if (!apiKey) {
-    log.warn("No API key configured for auto-capture LLM");
+/**
+ * Resolve the actual model id + provider from config.
+ * Supports "primary" (use main agent model) or explicit "provider/model".
+ */
+function resolveModelAndProvider(
+  ac: AutoCaptureConfig,
+  cfg: OpenClawConfig,
+  ctx: { modelProviderId?: string; modelId?: string },
+): { providerId: string; modelId: string } | null {
+  if (ac.model === "primary" || !ac.model) {
+    // Use the model from the current agent run context
+    const providerId = ctx.modelProviderId;
+    const modelId = ctx.modelId;
+    if (providerId && modelId) {
+      return { providerId, modelId };
+    }
+    // Fallback: read from agent defaults
+    const primary = cfg.agents?.defaults?.model?.primary;
+    if (typeof primary === "string" && primary.includes("/")) {
+      const [prov, ...rest] = primary.split("/");
+      return { providerId: prov, modelId: rest.join("/") };
+    }
+    log.warn("Auto-capture: cannot resolve primary model");
     return null;
   }
 
-  // Derive base URL from model prefix if not explicitly set
-  let baseUrl = ac.baseUrl;
+  // Explicit model: "provider/model"
+  if (ac.model.includes("/")) {
+    const [prov, ...rest] = ac.model.split("/");
+    return { providerId: prov, modelId: rest.join("/") };
+  }
+
+  // Bare model name — assume openai
+  return { providerId: "openai", modelId: ac.model };
+}
+
+/** Resolve LLM client config from OpenClaw provider config. */
+function resolveLlmConfig(
+  ac: AutoCaptureConfig,
+  cfg: OpenClawConfig,
+  ctx: { modelProviderId?: string; modelId?: string },
+): LlmClientConfig | null {
+  const resolved = resolveModelAndProvider(ac, cfg, ctx);
+  if (!resolved) return null;
+
+  // Read provider config from OpenClaw config
+  const providerConfig = cfg.models?.providers?.[resolved.providerId] as
+    | Record<string, unknown>
+    | undefined;
+
+  const apiKey =
+    ac.apiKey ??
+    (typeof providerConfig?.apiKey === "string" ? providerConfig.apiKey : undefined) ??
+    process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    log.warn(`Auto-capture: no API key for provider "${resolved.providerId}"`); 
+    return null;
+  }
+
+  const baseUrl =
+    ac.baseUrl ??
+    (typeof providerConfig?.baseUrl === "string" ? providerConfig.baseUrl : undefined);
   if (!baseUrl) {
-    const provider = ac.model.includes("/") ? ac.model.split("/")[0] : "openai";
-    if (provider === "openai") {
-      baseUrl = "https://api.openai.com/v1";
-    } else {
-      log.warn(`No baseUrl configured for provider "${provider}"`);
-      return null;
-    }
+    log.warn(`Auto-capture: no baseUrl for provider "${resolved.providerId}"`);
+    return null;
   }
 
   return {
-    model: ac.model,
+    model: resolved.modelId,
     apiKey,
     baseUrl,
     timeoutMs: ac.timeoutMs,
@@ -230,7 +277,7 @@ export function shouldProcess(params: {
 
 export type AgentEndHandlerParams = {
   event: { messages: unknown[]; success: boolean };
-  ctx: { trigger?: string; agentId?: string; workspaceDir?: string };
+  ctx: { trigger?: string; agentId?: string; workspaceDir?: string; modelProviderId?: string; modelId?: string };
   cfg: OpenClawConfig;
 };
 
@@ -270,8 +317,11 @@ export async function handleAgentEnd(params: AgentEndHandlerParams): Promise<voi
       return;
     }
 
-    // Resolve LLM config
-    const llmConfig = resolveLlmConfig(acConfig);
+    // Resolve LLM config from OpenClaw provider config
+    const llmConfig = resolveLlmConfig(acConfig, cfg, {
+      modelProviderId: ctx.modelProviderId,
+      modelId: ctx.modelId,
+    });
     if (!llmConfig) {
       return;
     }
