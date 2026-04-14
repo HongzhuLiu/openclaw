@@ -44,22 +44,6 @@ describe("resolvePnpmRunner", () => {
     });
   });
 
-  it("executes native pnpm binaries directly instead of routing them through node", () => {
-    expect(
-      resolvePnpmRunner({
-        npmExecPath: "/usr/local/bin/pnpm",
-        nodeArgs: ["--no-maglev"],
-        nodeExecPath: "/usr/local/bin/node",
-        pnpmArgs: ["exec", "vitest", "run"],
-        platform: "linux",
-      }),
-    ).toEqual({
-      command: "/usr/local/bin/pnpm",
-      args: ["exec", "vitest", "run"],
-      shell: false,
-    });
-  });
-
   it("falls back to bare pnpm on non-Windows when npm_execpath is missing", () => {
     expect(
       resolvePnpmRunner({

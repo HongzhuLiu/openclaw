@@ -6,10 +6,6 @@ function isPnpmExecPath(value) {
   return /^pnpm(?:-cli)?(?:\.(?:c?js|cmd|exe))?$/.test(path.basename(value).toLowerCase());
 }
 
-function isJsFile(value) {
-  return /\.(?:c?js|mjs)$/i.test(path.basename(value));
-}
-
 export function resolvePnpmRunner(params = {}) {
   const pnpmArgs = params.pnpmArgs ?? [];
   const nodeArgs = params.nodeArgs ?? [];
@@ -19,17 +15,9 @@ export function resolvePnpmRunner(params = {}) {
   const comSpec = params.comSpec ?? process.env.ComSpec ?? "cmd.exe";
 
   if (typeof npmExecPath === "string" && npmExecPath.length > 0 && isPnpmExecPath(npmExecPath)) {
-    // pnpm >=10 ships a native binary; only run through node if it's a JS file
-    if (isJsFile(npmExecPath)) {
-      return {
-        command: nodeExecPath,
-        args: [...nodeArgs, npmExecPath, ...pnpmArgs],
-        shell: false,
-      };
-    }
     return {
-      command: npmExecPath,
-      args: pnpmArgs,
+      command: nodeExecPath,
+      args: [...nodeArgs, npmExecPath, ...pnpmArgs],
       shell: false,
     };
   }
