@@ -614,6 +614,14 @@ function classifyFailoverClassificationFromHttpStatus(
     if (messageClassification) {
       return messageClassification;
     }
+    // When the response has no body at all, return null instead of defaulting
+    // to "format". A 400/422 with no body is likely a transient proxy issue
+    // — classifying it as "format" triggers a compaction loop that cannot recover.
+    if (!message || message.trim().length === 0) {
+      return null;
+    }
+    // Body exists but couldn't be classified — still treat as format error
+    // since the provider rejected the request schema.
     return toReasonClassification("format");
   }
   return null;

@@ -72,8 +72,10 @@ describe("failover-error", () => {
     expect(resolveFailoverReasonFromError({ status: 408 })).toBe("timeout");
     expect(resolveFailoverReasonFromError({ status: 410 })).toBe("timeout");
     expect(resolveFailoverReasonFromError({ status: 499 })).toBe("timeout");
-    expect(resolveFailoverReasonFromError({ status: 400 })).toBe("format");
-    expect(resolveFailoverReasonFromError({ status: 422 })).toBe("format");
+    // 400/422 with no body returns null — avoids triggering a compaction loop
+    // when the provider returns an empty 400 (e.g. transient proxy issue).
+    expect(resolveFailoverReasonFromError({ status: 400 })).toBeNull();
+    expect(resolveFailoverReasonFromError({ status: 422 })).toBeNull();
     // Transient server errors (500/502/503/504) should trigger failover as timeout.
     expect(resolveFailoverReasonFromError({ status: 500 })).toBe("timeout");
     expect(resolveFailoverReasonFromError({ status: 502 })).toBe("timeout");
