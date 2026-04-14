@@ -42,6 +42,7 @@ Docs: https://docs.openclaw.ai
 - fix(bluebubbles): replay missed webhook messages after gateway restart via a persistent per-account cursor and `/api/v1/message/query?after=<ts>` pass, so messages delivered while the gateway was down no longer disappear. Uses the existing `processMessage` path and is deduped by #66816's inbound GUID cache. (#66857, #66721) Thanks @omarshahine.
 - Telegram/native commands: keep Telegram command-sync cache process-local so gateway restarts re-register the menu instead of trusting stale on-disk sync state after Telegram cleared commands out-of-band. (#66730) Thanks @nightq.
 - Audio/self-hosted STT: restore `models.providers.*.request.allowPrivateNetwork` for audio transcription so private or LAN speech-to-text endpoints stop tripping SSRF blocks after the v2026.4.14 regression. (#66692) Thanks @jhsmith409.
+- Agents/failover: stop body-less HTTP 400/422 proxy failures from defaulting to `"format"` classification, so embedded retries surface the opaque provider failure instead of falling into a compaction loop. (#66473) Thanks @HongzhuLiu.
 
 ## 2026.4.14
 
